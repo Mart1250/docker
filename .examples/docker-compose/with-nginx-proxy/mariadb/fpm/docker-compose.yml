@@ -1,4 +1,4 @@
-version: '3'
+version: '3'                                                                                          docker-compose.ymlversion: '3'
 
 services:
   db:
@@ -8,15 +8,16 @@ services:
     volumes:
       - db:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=
+      - MYSQL_ROOT_PASSWORD=YOUR_MARIADB_ROOT_PASSWORD
     env_file:
       - db.env
 
   app:
+    container_name: app-server
     image: nextcloud:fpm-alpine
     restart: always
     volumes:
-      - nextcloud:/var/www/html
+      - /mnt/storagedisk/docker-nextcloud/nextcloud:/var/www/html
     environment:
       - MYSQL_HOST=db
     env_file:
@@ -24,17 +25,34 @@ services:
     depends_on:
       - db
 
+  onlyoffice-document-server:
+    container_name: onlyoffice-document-server
+    image: onlyoffice/documentserver:latest
+    stdin_open: true
+    tty: true
+    restart: always
+    expose:
+      - '80'
+      - '8000'
+      - '8080'
+    volumes:
+      - document_data:/var/www/onlyoffice/Data
+      - document_log:/var/log/onlyoffice
+
   web:
     build: ./web
     restart: always
     volumes:
-      - nextcloud:/var/www/html:ro
+      - /mnt/storagedisk/docker-nextcloud/nextcloud:/var/www/html
+      - document_data:/var/www/onlyoffice/Data
+      - document_log:/var/log/onlyoffice
     environment:
-      - VIRTUAL_HOST=
-      - LETSENCRYPT_HOST=
-      - LETSENCRYPT_EMAIL=
+      - VIRTUAL_HOST=YOURHOST.COM
+      - LETSENCRYPT_HOST=YOURHOST.COM
+      - LETSENCRYPT_EMAIL=YOUREMAIL@EMAIL.COM
     depends_on:
       - app
+      - onlyoffice-document-server
     networks:
       - proxy-tier
       - default
@@ -45,6 +63,8 @@ services:
     ports:
       - 80:80
       - 443:443
+      - 8000:8000
+      - 8080:8080
     labels:
       com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
     volumes:
@@ -70,10 +90,11 @@ services:
 
 volumes:
   db:
-  nextcloud:
   certs:
   vhost.d:
   html:
+  document_data:
+  document_log:
 
 networks:
   proxy-tier:
